@@ -8,7 +8,7 @@ import javax.management.BadAttributeValueExpException;
 import org.junit.Assert;
 
 import ysoserial.test.CustomTest;
-import ysoserial.exploit.JRMPListener;
+import ysoserial.exploit.rmi.JRMPListener;
 
 
 /**

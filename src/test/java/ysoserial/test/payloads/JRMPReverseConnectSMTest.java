@@ -5,7 +5,7 @@ import java.net.URL;
 import java.util.concurrent.Callable;
 
 import ysoserial.test.WrappedTest;
-import ysoserial.exploit.JRMPListener;
+import ysoserial.exploit.rmi.JRMPListener;
 
 
 /**

@@ -12,6 +12,7 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <tomcat.version>8.0.36</tomcat.version>
 	</properties>
 
 	<build>
@@ -177,6 +178,16 @@
 			<artifactId>remoting-jmx</artifactId>
 			<version>2.0.1.Final</version>
 		</dependency>
+        <dependency>
+            <groupId>com.unboundid</groupId>
+            <artifactId>unboundid-ldapsdk</artifactId>
+            <version>5.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tomcat</groupId>
+            <artifactId>tomcat-catalina</artifactId>
+            <version>${tomcat.version}</version>
+        </dependency>
 
 		<!-- gadget dependecies -->
 
@@ -336,7 +347,13 @@
             <artifactId>click-nodeps</artifactId>
             <version>2.3.0</version>
         </dependency>
-	</dependencies>
+        <!-- https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.15.3</version>
+        </dependency>
+    </dependencies>
 
 	<profiles>
         <profile>
@@ -444,5 +461,5 @@
             <name>GitHub Packages</name>
             <url>https://maven.pkg.github.com/frohoff/ysoserial</url>
         </repository>
-    </distributionManagement>	
+    </distributionManagement>
 </project>

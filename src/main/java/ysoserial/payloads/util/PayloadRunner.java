@@ -1,5 +1,6 @@
 package ysoserial.payloads.util;
 
+import java.io.File;
 import java.util.concurrent.Callable;
 
 import ysoserial.Deserializer;
@@ -43,21 +44,18 @@ public class PayloadRunner {
 	}
 
     private static String getDefaultTestCmd() {
-	    return getFirstExistingFile(
-	        "C:\\Windows\\System32\\calc.exe",
-            "/Applications/Calculator.app/Contents/MacOS/Calculator",
-            "/usr/bin/gnome-calculator",
-            "/usr/bin/kcalc"
-        );
-    }
+        String os = System.getProperty("os.name").toLowerCase();
 
-    private static String getFirstExistingFile(String ... files) {
-        return "calc.exe";
-//        for (String path : files) {
-//            if (new File(path).exists()) {
-//                return path;
-//            }
-//        }
-//        throw new UnsupportedOperationException("no known test executable");
+        if (os.contains("win")) {
+            // Windows
+            return "calc";
+        } else if (os.contains("mac")) {
+            // macOS
+            return "open -a calculator";
+        } else if (os.contains("nix") || os.contains("nux")) {
+            // Linux/Unix
+            return "gnome-calculator";
+        }
+        throw new UnsupportedOperationException("unknown system");
     }
 }

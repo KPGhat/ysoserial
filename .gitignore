@@ -15,3 +15,6 @@ target/
 
 # tests
 pwntest
+
+# mac
+**/.DS_Store
