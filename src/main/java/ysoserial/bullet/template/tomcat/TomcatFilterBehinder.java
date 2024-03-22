@@ -1,4 +1,4 @@
-package ysoserial.bullet.tmpl.memshell.tomcat;
+package ysoserial.bullet.template.tomcat;
 
 import org.apache.catalina.Context;
 import org.apache.catalina.core.ApplicationContext;

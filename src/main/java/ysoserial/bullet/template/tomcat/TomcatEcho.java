@@ -1,10 +1,4 @@
-package ysoserial.bullet.tmpl.memshell.tomcat;
-
-import com.sun.org.apache.xalan.internal.xsltc.DOM;
-import com.sun.org.apache.xalan.internal.xsltc.TransletException;
-import com.sun.org.apache.xalan.internal.xsltc.runtime.AbstractTranslet;
-import com.sun.org.apache.xml.internal.dtm.DTMAxisIterator;
-import com.sun.org.apache.xml.internal.serializer.SerializationHandler;
+package ysoserial.bullet.template.tomcat;
 
 import java.io.Serializable;
 

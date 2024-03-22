@@ -1,4 +1,4 @@
-package ysoserial.bullet.tmpl.memshell.tomcat;
+package ysoserial.bullet.template.tomcat;
 
 import org.apache.catalina.WebResourceRoot;
 import org.apache.catalina.Wrapper;
