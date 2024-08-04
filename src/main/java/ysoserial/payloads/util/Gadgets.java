@@ -24,6 +24,7 @@ import javassist.bytecode.ClassFile;
 import com.sun.org.apache.xalan.internal.xsltc.runtime.AbstractTranslet;
 import com.sun.org.apache.xalan.internal.xsltc.trax.TemplatesImpl;
 import com.sun.org.apache.xalan.internal.xsltc.trax.TransformerFactoryImpl;
+import org.apache.commons.codec.binary.Base64;
 
 import javax.swing.event.EventListenerList;
 import javax.swing.undo.UndoManager;
@@ -84,6 +85,9 @@ public class Gadgets {
             command = tmplArgs[1];
         } else if (tmplArgs.length == 2 && tmplArgs[0].equals("file")) {
             byte[] fileContent = Files.readAllBytes(Paths.get(tmplArgs[1]));
+            return  createTemplatesImpl(fileContent);
+        } else if (tmplArgs.length == 2 && tmplArgs[0].equals("base64")) {
+            byte[] fileContent = Base64.decodeBase64(tmplArgs[1]);
             return  createTemplatesImpl(fileContent);
         }
 
