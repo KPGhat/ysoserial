@@ -160,6 +160,8 @@ public class Gadgets {
                 memshellName = memshellPackage + "tomcat." + memshellName;
             } else if (memshellName.startsWith("Spring")) {
                 memshellName = memshellPackage + "spring." + memshellName;
+            } else {
+                memshellName = memshellPackage + memshellName;
             }
         }
 
